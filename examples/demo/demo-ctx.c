@@ -8,18 +8,24 @@
 int main(void) {
      // initialize data of matrices to perform matrix multiplication
     const int rows_A = 4, cols_A = 2;
-    float matrix_A[rows_A * cols_A] = {
-        2, 8,
-        5, 1,
-        4, 2,
-        8, 6
-    };
+    float matrix_A[rows_A * cols_A];
+    matrix_A[0] = 2;
+    matrix_A[1] = 8;
+    matrix_A[2] = 5;
+    matrix_A[3] = 1;
+    matrix_A[4] = 4;
+    matrix_A[5] = 2;
+    matrix_A[6] = 8;
+    matrix_A[7] = 6;
+
     const int rows_B = 3, cols_B = 2;
-    float matrix_B[rows_B * cols_B] = {
-        10, 5,
-        9, 9,
-        5, 4
-    };
+    float matrix_B[rows_B * cols_B];
+    matrix_B[0] = 10;
+    matrix_B[1] = 5;
+    matrix_B[2] = 9;
+    matrix_B[3] = 9;
+    matrix_B[4] = 5;
+    matrix_B[5] = 4;
 
     // 1. Allocate `ggml_context` to store tensor data
     // Calculate the size needed to allocate
