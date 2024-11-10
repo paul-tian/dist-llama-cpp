@@ -10,7 +10,7 @@ make sure the current working directory is ```my-exp/```
 ## Demo for ggml and backend
 compile the basic exp:
 
-if for CUDA (Linux with Nvidia 3090):
+if for CUDA (Linux with Nvidia GPUs, 3070 and 3090 in my case):
 
 ```bash
 cmake .. -DGGML_CUDA=ON
@@ -38,7 +38,7 @@ cmake --build . --config Release --target exp-ctx-cxx
 
 compile the distributed version:
 
-if for CUDA (Linux with Nvidia 3090): 
+if for CUDA (Linux with Nvidia GPUs, 3070 and 3090 in my case): 
 
 ```bash
 mkdir rpc-dist
