@@ -1,3 +1,11 @@
+# My Experiments
+/my-exp/*
+!my-exp/README.md
+!my-exp/CMakeLists.txt
+!my-exp/exp-basic/
+!my-exp/exp-rpc/
+
+
 # Extensions
 
 *.a

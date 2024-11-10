@@ -70,7 +70,7 @@ void load_model(simple_model & model, float * a, float * b, int rows_A, int cols
 
     int num_tensors = 2;
 
-    struct ggml_init_params params {
+    struct ggml_init_params params = { // clang needs the = sign
             /*.mem_size   =*/ ggml_tensor_overhead() * num_tensors,
             /*.mem_buffer =*/ NULL,
             /*.no_alloc   =*/ true,
