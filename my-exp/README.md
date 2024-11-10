@@ -1,4 +1,4 @@
-# distributed llama.cpp 
+# Distributed llama.cpp 
 
 This is the note for my experiment execution
 
@@ -7,8 +7,22 @@ all the files for myself are in the ```my-exp``` folder
 make sure the current working directory is ```my-exp/```
 
 
+## Demo for ggml and backend
 compile the basic exp:
 
+if for CUDA (Linux with Nvidia 3090):
+
+```bash
+cmake .. -DGGML_CUDA=ON
+cmake --build . --config Release --target exp-backend
+./bin/exp-backend
+cmake --build . --config Release --target exp-ctx
+./bin/exp-ctx
+cmake --build . --config Release --target exp-ctx-cxx
+./bin/exp-ctx-cxx
+```
+
+if for Metal (Mac):
 ```bash
 cmake ..
 cmake --build . --config Release --target exp-backend
@@ -20,16 +34,16 @@ cmake --build . --config Release --target exp-ctx-cxx
 ```
 
 
+## Experiment for distributed llama.cpp
+
 compile the distributed version:
-
-
 
 if for CUDA (Linux with Nvidia 3090): 
 
 ```bash
 mkdir rpc-dist
 cd rpc-dist
-cmake ../.. -DEXP_RPC=ON -DGGML_CUDA=ON
+cmake ../.. -DGGML_RPC=ON -DGGML_CUDA=ON
 cmake --build . --config Release
 ```
 
@@ -37,8 +51,8 @@ if for metal (Mac):
 ```bash
 mkdir rpc-dist
 cd rpc-dist
-cmake ../.. -DEXP_RPC=ON
-cmake --build . --config Releasee
+cmake ../.. -DGGML_RPC=ON
+cmake --build . --config Release
 ```
 
 
@@ -54,12 +68,12 @@ notice the ```---host``` need to set otherwise the rpc will only open to the loc
 then on the coordinator machine:
 
 ```bash
-./bin/llama-cli -m ../../llama-model/llama-3-8B-Instruct-Q8_0.gguf -p "HMy name is" --repeat-penalty 1.0 -n -1 --rpc DISTRIBUTOR_IP:PORT_NUM -ngl 200
+./bin/llama-cli -m PATH_TO_MODEL -p "My name is" --repeat-penalty 1.0 -n -1 --rpc DISTRIBUTOR_IP:PORT_NUM -ngl 200
 ```
 
-if having multiple distributor machines:
+if having multiple distributor machines, they can be separated by comma:
 ```bash
-bin/llama-cli -m ../../llama-model/llama-3-8B-Instruct-Q8_0.gguf -p "HMy name is" --repeat-penalty 1.0 -n -1 --rpc 1_DISTRIBUTOR_IP:PORT_NUM,2_DISTRIBUTOR_IP:PORT_NUM -ngl 200
+./bin/llama-cli -m PATH_TO_MODEL -p "My name is" --repeat-penalty 1.0 -n -1 --rpc DISTRIBUTOR_1_IP:PORT_NUM,DISTRIBUTOR_2_IP:PORT_NUM,DISTRIBUTOR_3_IP:PORT_NUM -ngl 200
 ```
 
 
@@ -79,5 +93,4 @@ https://huggingface.co/TheBloke/Llama-2-7B-GGUF
 https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF
 
 
-# Demo for ggml and backend
 
