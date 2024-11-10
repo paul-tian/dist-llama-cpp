@@ -92,5 +92,11 @@ https://huggingface.co/TheBloke/Llama-2-7B-GGUF
 
 https://huggingface.co/bartowski/Meta-Llama-3-8B-Instruct-GGUF
 
-
-
+The models are
+- llama-2-13b.Q6_K.gguf
+- llama-2-13b.Q8_0.gguf
+- llama-2-7b.Q6_K.gguf
+- llama-2-7b.Q8_0.gguf
+- llama-3-8B-Instruct-Q4_K_M.gguf
+- llama-3-8B-Instruct-Q6_K.gguf
+- llama-3-8B-Instruct-Q8_0.gguf
