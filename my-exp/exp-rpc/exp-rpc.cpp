@@ -34,7 +34,7 @@ static void print_usage(int /*argc*/, char ** argv, rpc_server_params params) {
     fprintf(stderr, "  -h, --help            show this help message and exit\n");
     fprintf(stderr, "  -H HOST, --host HOST  host to bind to (default: %s)\n", params.host.c_str());
     fprintf(stderr, "  -p PORT, --port PORT  port to bind to (default: %d)\n", params.port);
-    fprintf(stderr, "  -m MEM, --mem MEM     backend memory size (in MB)\n");
+    fprintf(stderr, "  -m MEM, --mem MEM     backend memory size (in MB), and needs to be at least 1024 MB less than the system memory\n");
     fprintf(stderr, "\n");
 }
 
@@ -123,6 +123,21 @@ static void get_backend_memory(size_t * free_mem, size_t * total_mem) {
 #endif
 }
 
+static bool memory_capable_check(size_t backend_mem) {
+    size_t init_free_mem, system_total_mem, capable_mem;
+    int bytes_gb = 1024 * 1024 * 1024;
+    int bytes_mb = 1024 * 1024;
+    get_backend_memory(&init_free_mem, &system_total_mem);// get the system memory
+    printf("Initial free memory: %zu MB, system total memory: %zu MB\n", init_free_mem / bytes_mb, system_total_mem / bytes_mb);
+    capable_mem = system_total_mem - 1 * bytes_gb; // reserve 1GB for the system
+    if (backend_mem > capable_mem) { 
+        fprintf(stderr, "Backend memory is set too large (%zu MB), needs to be <= capable memory (%zu MB)\n", backend_mem / bytes_mb, capable_mem / bytes_mb);
+        return false;
+    } else {
+        return true;
+    }
+}
+
 int main(int argc, char * argv[]) {
     rpc_server_params params;
     if (!rpc_server_params_parse(argc, argv, params)) {
@@ -148,8 +163,12 @@ int main(int argc, char * argv[]) {
     std::string endpoint = params.host + ":" + std::to_string(params.port);
     size_t free_mem, total_mem;
     if (params.backend_mem > 0) {
-        free_mem = params.backend_mem;
-        total_mem = params.backend_mem;
+        if (!memory_capable_check(params.backend_mem)) {
+            return 1;
+        } else {
+            free_mem = params.backend_mem;
+            total_mem = params.backend_mem;
+        }
     } else {
         get_backend_memory(&free_mem, &total_mem);
     }
