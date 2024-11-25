@@ -22,6 +22,20 @@
 #include <string>
 #include <stdio.h>
 
+// libraries for local IP address
+#ifdef _WIN32
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+    #include <iphlpapi.h>
+    #pragma comment(lib, "iphlpapi.lib")
+    #pragma comment(lib, "ws2_32.lib")
+#else
+    #include <sys/types.h>
+    #include <ifaddrs.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+#endif
+
 struct rpc_server_params {
     std::string host        = "127.0.0.1";
     int         port        = 50052;
@@ -138,6 +152,78 @@ static bool memory_capable_check(size_t backend_mem) {
     }
 }
 
+// get the local IP address
+static std::string get_ip_address() {
+    std::string ip_address = "unknown";
+
+#ifdef _WIN32
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        return ip_address;
+    }
+
+    PIP_ADAPTER_ADDRESSES pAddresses = NULL;
+    ULONG outBufLen = 0;
+    DWORD dwRetVal = 0;
+
+    // First call to get the buffer size
+    GetAdaptersAddresses(AF_INET, 0, NULL, pAddresses, &outBufLen);
+    pAddresses = (IP_ADAPTER_ADDRESSES*)malloc(outBufLen);
+
+    if (GetAdaptersAddresses(AF_INET, 0, NULL, pAddresses, &outBufLen) == NO_ERROR) {
+        PIP_ADAPTER_ADDRESSES pCurrAddresses = pAddresses;
+        while (pCurrAddresses) {
+            PIP_ADAPTER_UNICAST_ADDRESS pUnicast = pCurrAddresses->FirstUnicastAddress;
+            while (pUnicast != NULL) {
+                sockaddr_in* addr = (sockaddr_in*)pUnicast->Address.lpSockaddr;
+                char ip[INET_ADDRSTRLEN];
+                inet_ntop(AF_INET, &(addr->sin_addr), ip, INET_ADDRSTRLEN);
+                std::string addr_str(ip);
+                // Skip loopback addresses
+                if (addr_str != "127.0.0.1" && addr_str.substr(0, 3) != "169") {
+                    ip_address = addr_str;
+                    break;
+                }
+                pUnicast = pUnicast->Next;
+            }
+            if (ip_address != "unknown") break;
+            pCurrAddresses = pCurrAddresses->Next;
+        }
+    }
+
+    free(pAddresses);
+    WSACleanup();
+#else
+    struct ifaddrs* ifAddrStruct = NULL;
+    if (getifaddrs(&ifAddrStruct) == -1) {
+        return ip_address;
+    }
+
+    for (struct ifaddrs* ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+        if (!ifa->ifa_addr || ifa->ifa_addr->sa_family != AF_INET) {
+            continue;
+        }
+
+        void* tmpAddrPtr = &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
+        char addressBuffer[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
+        std::string addr_str(addressBuffer);
+
+        // Skip loopback and link-local addresses
+        if (addr_str != "127.0.0.1" && addr_str.substr(0, 3) != "169") {
+            ip_address = addr_str;
+            break;
+        }
+    }
+
+    if (ifAddrStruct != NULL) {
+        freeifaddrs(ifAddrStruct);
+    }
+#endif
+
+    return ip_address;
+}
+
 int main(int argc, char * argv[]) {
     rpc_server_params params;
     if (!rpc_server_params_parse(argc, argv, params)) {
@@ -172,6 +258,9 @@ int main(int argc, char * argv[]) {
     } else {
         get_backend_memory(&free_mem, &total_mem);
     }
+    printf("\n-----------------------------------------------------------\n");
+    printf("The address of this machine is: %s:%d\n", get_ip_address().c_str(), params.port);
+    printf("-----------------------------------------------------------\n\n");
     printf("Starting RPC server on %s, backend memory: %zu MB\n", endpoint.c_str(), free_mem / (1024 * 1024));
     ggml_backend_rpc_start_server(backend, endpoint.c_str(), free_mem, total_mem);
     ggml_backend_free(backend);
