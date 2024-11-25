@@ -36,27 +36,37 @@ cmake --build . --config Release --target exp-ctx-cxx
 
 ## Experiment for distributed llama.cpp
 
+In this context, the ```server``` is the one being called by the ```client```, and when doing distributed execution, one ```client``` can call multiple ```server```s.
+
+
+
 compile the distributed version:
+
+First have the ```rpc-dist``` folder prepared for following steps:
+
+```bash
+mkdir rpc-dist
+cd rpc-dist
+```
+
+From now on, we are in the ```my-exp/rpc-dist``` folder.
 
 if for CUDA (Linux with Nvidia GPUs, 3070 and 3090 in my case): 
 
 ```bash
-mkdir rpc-dist
-cd rpc-dist
-cmake ../.. -DGGML_RPC=ON -DGGML_CUDA=ON
+cmake ../.. -DGGML_RPC=ON -DGGML_CUDA=ON -DGGML_CCACHE=OFF
 cmake --build . --config Release
 ```
 
 if for metal (Mac):
+
 ```bash
-mkdir rpc-dist
-cd rpc-dist
-cmake ../.. -DGGML_RPC=ON
+cmake ../.. -DGGML_RPC=ON -DGGML_CCACHE=OFF
 cmake --build . --config Release
 ```
 
 
-then on the distributor machine:
+On the server machine, the one will be called by the client, we execute:
 
 ```bash
 ./bin/exp-rpc --host 0.0.0.0 --port PORT_NUM
@@ -65,7 +75,7 @@ then on the distributor machine:
 notice the ```---host``` need to set otherwise the rpc will only open to the local machine
 
 
-then on the coordinator machine:
+then on the client machine, the one who will call the server(s), we execute:
 
 ```bash
 ./bin/llama-cli -m PATH_TO_MODEL -p "My name is" --repeat-penalty 1.0 -n -1 --rpc DISTRIBUTOR_IP:PORT_NUM -ngl 200
