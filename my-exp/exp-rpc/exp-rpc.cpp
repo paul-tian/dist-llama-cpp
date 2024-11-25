@@ -238,9 +238,6 @@ int main(int argc, char * argv[]) {
         fprintf(stderr, "         Never expose the RPC server to an open network!\n");
         fprintf(stderr, "         This is an experimental feature and is not secure!\n");
         fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-        fprintf(stderr, "The IP of this machine is: '%s'\n", get_ip_address().c_str());
-        fprintf(stderr, "The specified port No. is: '%d'\n", params.port);
-        fprintf(stderr, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         fprintf(stderr, "\n");
     }
 
@@ -261,6 +258,8 @@ int main(int argc, char * argv[]) {
     } else {
         get_backend_memory(&free_mem, &total_mem);
     }
+    printf("The IP of this machine is: '%s'\n", get_ip_address().c_str());
+    printf("The specified port No. is: '%d'\n", params.port);
     printf("Starting RPC server on %s, backend memory: %zu MB\n", endpoint.c_str(), free_mem / (1024 * 1024));
     ggml_backend_rpc_start_server(backend, endpoint.c_str(), free_mem, total_mem);
     ggml_backend_free(backend);
