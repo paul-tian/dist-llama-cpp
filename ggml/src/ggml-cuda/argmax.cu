@@ -1,69 +1,57 @@
-#include <algorithm>
-#include <cstdint>
-
-#include "argmax.cuh"
 #include "common.cuh"
+#include "argmax.cuh"
 #include "sum.cuh"
 
-static __global__ void argmax_f32(const float * __restrict__ x, int32_t * __restrict__ dst, const int64_t ncols) {
-    const int64_t row = blockIdx.x;
+#include <cstdint>
 
-    float maxval = -FLT_MAX;
-    int   argmax = -1;
-    const float * rowx = x + row * ncols;
+static __global__ void argmax_f32(
+    const float * x, int32_t * dst, const int64_t ncols, const int64_t nrows) {
 
-    for (int32_t col = threadIdx.x; col < ncols; col += blockDim.x) {
-        const float val = rowx[col];
-        if (val > maxval) {
-            maxval = val;
-            argmax = col;
-        }
-    }
+    int argmax_thread = 0;
+    const int64_t row0 = (int64_t)blockIdx.x*WARP_SIZE;
 
 #pragma unroll
-    for (int offset = 16; offset > 0; offset >>= 1) {
-        const float val = __shfl_xor_sync(0xFFFFFFFF, maxval, offset, WARP_SIZE);
-        const int   col = __shfl_xor_sync(0xFFFFFFFF, argmax, offset, WARP_SIZE);
-        if (val > maxval) {
-            maxval = val;
-            argmax = col;
-        }
-    }
+    for (int64_t row1 = 0; row1 < WARP_SIZE; ++row1) {
+        const int64_t row = row0 + row1;
 
-    const int n_warps = blockDim.x / WARP_SIZE;
-    const int lane_id = threadIdx.x % WARP_SIZE;
-    const int warp_id = threadIdx.x / WARP_SIZE;
-    if (n_warps > 1) {
-        constexpr int    max_warps = 1024 / WARP_SIZE;
-        __shared__ float shared_maxval[max_warps];
-        __shared__ int   shared_argmax[max_warps];
-        if (lane_id == 0) {
-            shared_maxval[warp_id] = maxval;
-            shared_argmax[warp_id] = argmax;
+        if (row >= nrows) {
+            break;
         }
 
-        __syncthreads();
+        float maxval = -FLT_MAX;
+        int   argmax = -1;
 
-        if (warp_id == 0) {
-            if (lane_id < n_warps) {
-                maxval = shared_maxval[lane_id];
-                argmax = shared_argmax[lane_id];
-            }
+        for (int32_t col = threadIdx.x; col < ncols; col += WARP_SIZE) {
+            const float val        = x[row*ncols + col];
+            const int   bigger     = val > maxval;
+            const int   not_bigger = bigger ^ 0x00000001;
+
+            maxval = maxval*not_bigger + val*bigger;
+            argmax = argmax*not_bigger + col*bigger;
+        }
+
 #pragma unroll
-            for (int offset = 16; offset > 0; offset >>= 1) {
-                const float val = __shfl_xor_sync(0xFFFFFFFF, maxval, offset, WARP_SIZE);
-                const int   col = __shfl_xor_sync(0xFFFFFFFF, argmax, offset, WARP_SIZE);
-                if (val > maxval) {
-                    maxval = val;
-                    argmax = col;
-                }
-            }
+        for (int mask = 16; mask > 0; mask >>= 1) {
+            const float val        = __shfl_xor_sync(0xFFFFFFFF, maxval, mask, WARP_SIZE);
+            const int   col        = __shfl_xor_sync(0xFFFFFFFF, argmax, mask, WARP_SIZE);
+            const int   bigger     = val > maxval;
+            const int   not_bigger = bigger ^ 0x00000001;
+
+            maxval = maxval*not_bigger + val*bigger;
+            argmax = argmax*not_bigger + col*bigger;
         }
+
+        const int store = row1 == threadIdx.x;
+        argmax_thread += store*argmax;
     }
 
-    if (warp_id == 0 && lane_id == 0) {
-        dst[row] = argmax;
+    const int row = row0 + threadIdx.x;
+
+    if (row >= nrows) {
+        return;
     }
+
+    dst[row] = argmax_thread;
 }
 
 void ggml_cuda_argmax(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
@@ -82,10 +70,10 @@ void ggml_cuda_argmax(ggml_backend_cuda_context & ctx, ggml_tensor * dst) {
 
     cudaStream_t stream = ctx.stream();
 
-    const int64_t num_blocks = nrows;
-    const int64_t num_threads = std::min<int64_t>(1024, (ne00 + WARP_SIZE - 1) / WARP_SIZE * WARP_SIZE);
-    const dim3 blocks_dim(num_threads, 1, 1);
+    const int64_t num_blocks = (nrows + WARP_SIZE - 1) / WARP_SIZE;
+
+    const dim3 blocks_dim(WARP_SIZE, 1, 1);
     const dim3 blocks_num(num_blocks, 1, 1);
 
-    argmax_f32<<<blocks_num, blocks_dim, 0, stream>>>(src0_d, dst_d, ne00);
+    argmax_f32<<<blocks_num, blocks_dim, 0, stream>>>(src0_d, dst_d, ne00, nrows);
 }

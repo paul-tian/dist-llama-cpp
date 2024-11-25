@@ -1,3 +1,7 @@
+if (NOT SOC_TYPE)
+    set (SOC_TYPE "Ascend910B3")
+endif()
+
 file(GLOB SRC_FILES
     get_row_f32.cpp
     get_row_f16.cpp
@@ -9,6 +13,7 @@ file(GLOB SRC_FILES
     dup.cpp
 )
 
+string(TOLOWER ${SOC_TYPE} SOC_VERSION)
 set(ASCEND_CANN_PACKAGE_PATH ${CANN_INSTALL_DIR})
 set(RUN_MODE "npu" CACHE STRING "run mode: npu/sim")
 
@@ -25,6 +30,4 @@ ascendc_library(ascendc_kernels STATIC
     ${SRC_FILES}
 )
 
-message(STATUS "CANN: compile ascend kernels witch SOC_VERSION:${SOC_VERSION}.")
-ascendc_compile_definitions(ascendc_kernels PRIVATE "-D${SOC_TYPE_COMPILE_OPTION}")
 # ascendc_compile_definitions(ascendc_kernels PRIVATE -DASCENDC_DUMP)

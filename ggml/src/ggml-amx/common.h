@@ -1,8 +1,7 @@
 #pragma once
 
 #include "ggml.h"
-// hack until AMX is moved into the CPU backend
-#include "../ggml-cpu/ggml-cpu-impl.h" // <immintrin.h>
+#include "ggml-cpu-impl.h" // <immintrin.h>
 
 #include <algorithm>
 #include <memory>

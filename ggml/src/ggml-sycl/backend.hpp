@@ -26,8 +26,5 @@
 #include "softmax.hpp"
 #include "tsembd.hpp"
 #include "im2col.hpp"
-#include "wkv6.hpp"
-#include "outprod.hpp"
-#include "element_wise.hpp"
 
 #endif // GGML_SYCL_BACKEND_HPP
