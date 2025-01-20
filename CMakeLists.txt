@@ -46,6 +46,11 @@ if (WIN32)
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 endif()
 
+if (MSVC)
+    add_compile_options("$<$<COMPILE_LANGUAGE:C>:/utf-8>")
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:/utf-8>")
+endif()
+
 #
 # option list
 #
@@ -75,21 +80,15 @@ option(LLAMA_CURL "llama: use libcurl to download model from an URL" OFF)
 
 # Required for relocatable CMake package
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/build-info.cmake)
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/common.cmake)
 
 # override ggml options
-set(GGML_SANITIZE_THREAD    ${LLAMA_SANITIZE_THREAD})
-set(GGML_SANITIZE_ADDRESS   ${LLAMA_SANITIZE_ADDRESS})
-set(GGML_SANITIZE_UNDEFINED ${LLAMA_SANITIZE_UNDEFINED})
-set(GGML_ALL_WARNINGS       ${LLAMA_ALL_WARNINGS})
-set(GGML_FATAL_WARNINGS     ${LLAMA_FATAL_WARNINGS})
+set(GGML_ALL_WARNINGS   ${LLAMA_ALL_WARNINGS})
+set(GGML_FATAL_WARNINGS ${LLAMA_FATAL_WARNINGS})
 
 # change the default for these ggml options
 if (NOT DEFINED GGML_LLAMAFILE)
     set(GGML_LLAMAFILE_DEFAULT ON)
-endif()
-
-if (NOT DEFINED GGML_AMX)
-    set(GGML_AMX ON)
 endif()
 
 if (NOT DEFINED GGML_CUDA_GRAPHS)
@@ -115,15 +114,61 @@ llama_option_depr(WARNING     LLAMA_SYCL                GGML_SYCL)
 llama_option_depr(WARNING     LLAMA_SYCL_F16            GGML_SYCL_F16)
 llama_option_depr(WARNING     LLAMA_CANN                GGML_CANN)
 
+if (NOT MSVC)
+    if (LLAMA_SANITIZE_THREAD)
+        message(STATUS "Using -fsanitize=thread")
+
+        add_compile_options(-fsanitize=thread)
+        link_libraries     (-fsanitize=thread)
+    endif()
+
+    if (LLAMA_SANITIZE_ADDRESS)
+        message(STATUS "Using -fsanitize=address")
+
+        add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+        link_libraries     (-fsanitize=address)
+    endif()
+
+    if (LLAMA_SANITIZE_UNDEFINED)
+        message(STATUS "Using -fsanitize=undefined")
+
+        add_compile_options(-fsanitize=undefined)
+        link_libraries     (-fsanitize=undefined)
+    endif()
+endif()
+
 #
-# build the library
+# 3rd-party
 #
 
 if (NOT TARGET ggml)
     add_subdirectory(ggml)
     # ... otherwise assume ggml is added by a parent CMakeLists.txt
 endif()
+
+#
+# build the library
+#
+
 add_subdirectory(src)
+
+#
+# utils, programs, examples and tests
+#
+
+if (LLAMA_BUILD_COMMON)
+    add_subdirectory(common)
+endif()
+
+if (LLAMA_BUILD_COMMON AND LLAMA_BUILD_TESTS AND NOT CMAKE_JS_VERSION)
+    include(CTest)
+    add_subdirectory(tests)
+endif()
+
+if (LLAMA_BUILD_COMMON AND LLAMA_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+    add_subdirectory(pocs)
+endif()
 
 #
 # install
@@ -139,7 +184,6 @@ set(LLAMA_INSTALL_VERSION 0.0.${BUILD_NUMBER})
 set(LLAMA_INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE PATH "Location of header  files")
 set(LLAMA_LIB_INSTALL_DIR     ${CMAKE_INSTALL_LIBDIR}     CACHE PATH "Location of library files")
 set(LLAMA_BIN_INSTALL_DIR     ${CMAKE_INSTALL_BINDIR}     CACHE PATH "Location of binary  files")
-
 
 # At the moment some compile definitions are placed within the ggml/src
 # directory but not exported on the `ggml` target. This could be improved by
@@ -157,8 +201,11 @@ if (GGML_TARGET_DEFINES)
     list(APPEND GGML_TRANSIENT_DEFINES ${GGML_TARGET_DEFINES})
 endif()
 get_target_property(GGML_LINK_LIBRARIES ggml LINK_LIBRARIES)
-
-set_target_properties(llama PROPERTIES PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/llama.h)
+# all public headers
+set(LLAMA_PUBLIC_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/llama.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/include/llama-cpp.h)
+set_target_properties(llama PROPERTIES PUBLIC_HEADER "${LLAMA_PUBLIC_HEADERS}")
 install(TARGETS llama LIBRARY PUBLIC_HEADER)
 
 configure_package_config_file(
